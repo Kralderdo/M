@@ -37,7 +37,7 @@ def stream_markup_timer(_, videoid, chat_id, played, dur):
     # Butonlar
     buttons = [
         [
-            InlineKeyboardButton("🚀 Kumsal Bots 🚀", url="https://t.me/the_team_kumsal")
+            InlineKeyboardButton("🚀 Kumsal Bots 🚀", url="https://t.me/sesizlikkkDusmanimizzzz")
         ],
         [
             InlineKeyboardButton(f"{played}  ⟪ {bar} ⟫  {dur}", callback_data="nonclickable")
@@ -78,8 +78,8 @@ def stream_markup_timer(_, videoid, chat_id, played, dur):
         ],
         [
             InlineKeyboardButton(
-                text="🔮 𝙆𝙐𝙈𝙎𝘼𝙇 𝘽𝙊𝙏𝙎 🔮",
-                url="https://t.me/the_team_kumsal"
+                text="🔮 PRENSES 𝘽𝙊𝙏𝙎 🔮",
+                url="https://t.me/sesizlikkkDusmanimizzzz"
             )
         ],
         [
@@ -116,7 +116,7 @@ def telegram_markup_timer(_, chat_id, played, dur, videoid):
 
     buttons = [
         [
-            InlineKeyboardButton("🚀 Kumsal Bots 🚀", url="https://t.me/the_team_kumsal")
+            InlineKeyboardButton("🚀 Prenses Bots 🚀", url="https://t.me/sesizlikkkDusmanimizzzz")
         ],
         [
             InlineKeyboardButton(f"{played} ⟪ {bar} ⟫ {dur}", callback_data="nonclickable")
