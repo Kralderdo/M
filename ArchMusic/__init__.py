@@ -10,7 +10,7 @@
 
 from ArchMusic.core.bot import ArchMusic
 from ArchMusic.core.dir import dirr
-from ArchMusic.core.git import git
+# from ArchMusic.core.git import git  # 🔒 Heroku için devre dışı bırakıldı
 from ArchMusic.core.userbot import Userbot
 from ArchMusic.misc import dbb, heroku, sudo
 
@@ -19,8 +19,8 @@ from .logging import LOGGER
 # Directories
 dirr()
 
-# Check Git Updates
-git()
+# Check Git Updates (devre dışı)
+# git()
 
 # Initialize Memory DB
 dbb()
