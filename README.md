@@ -37,7 +37,7 @@ SPOTIFY_CLIENT_SECRET = developer.spotify.com adresinden alacaksiniz
 OWNER_ID = sahip(sizin) kullanici kimliğiniz bunu userinfobot tan ya da herhangi bir gruptan info çekerek öğrenebilirsiniz.
 
 UPSTREAM_REPO = https://github.com/ToxicTR/Toxic-Music
-UPSTREAM_BRAMCH = master
+UPSTREAM_BRANCH = master
 PRIVATE_BOT_MODE = False
 YOUTUBE_EDIT_SLEEP = 3
 TELEGRAM_EDIT_SLEEP = 5
