@@ -8,7 +8,7 @@ from config import BANNED_USERS, MONGO_DB_URI, OWNER_ID
 from strings import get_command
 from ArchMusic import app
 from ArchMusic.misc import SUDOERS
-from ArchMusic.utils.database import add_sudo, remove_sudo
+from ArchMusic.utils.database import add_sudo, remove_sudo, get_sudoers
 from ArchMusic.utils.decorators.language import language
 
 # Commands
@@ -17,29 +17,33 @@ DELSUDO_COMMAND = get_command("DELSUDO_COMMAND")
 SUDOUSERS_COMMAND = get_command("SUDOUSERS_COMMAND")
 
 
-# ---- Yardımcı: hedef kullanıcıyı güvenli çöz ----
+# ---- Hedef kullanıcıyı güvenli çöz ----
 async def _safe_resolve_user_id(raw: str) -> int:
     """
-    - '@user' -> username
-    - '123456789' (str) -> INT'e çevir (phone sanılmasın)
-    - 'me', 'self' gibi destekli özel değerler Pyrogram tarafından zaten çözülür,
-      ama biz burada sadece int/username yolundan gideriz.
+    Güvenli çözüm:
+      - '@user' -> username
+      - '123456789' -> int'e çevir (telefon sanılmasın)
     """
     user_key = raw.strip()
-
-    # username temizliği
     if user_key.startswith("@"):
         user_key = user_key[1:]
 
-    # saf rakamsa: INT'e çevir → phone resolve tetiklenmez
     if user_key.isdigit():
         uid = int(user_key)
         user = await app.get_users(uid)
         return user.id
 
-    # rakam değilse username kabul et
     user = await app.get_users(user_key)
     return user.id
+
+
+def _is_owner(uid: int) -> bool:
+    try:
+        if isinstance(OWNER_ID, (list, tuple)):
+            return uid in OWNER_ID
+        return uid == OWNER_ID
+    except Exception:
+        return False
 
 
 @app.on_message(filters.command(ADDSUDO_COMMAND) & filters.user(OWNER_ID))
@@ -47,15 +51,12 @@ async def _safe_resolve_user_id(raw: str) -> int:
 async def useradd(client, message: Message, _):
     if not MONGO_DB_URI:
         return await message.reply_text(
-            _["general_1"]  # mevcut çeviri: eksik değişken uyarısı
-            if "general_1" in _
-            else "**Bu özellik için MONGO_DB_URI gerekli.**"
+            _["general_1"] if "general_1" in _ else "**Bu özellik için MONGO_DB_URI gerekli.**"
         )
 
     # reply ile ekleme
     if message.reply_to_message:
         target_id = message.reply_to_message.from_user.id
-
     else:
         # /addsudo <id|@username>
         if len(message.command) != 2:
@@ -68,22 +69,25 @@ async def useradd(client, message: Message, _):
                 _["sudo_8"] if "sudo_8" in _ else "Kullanıcı çözümlenemedi."
             )
 
-    if target_id in SUDOERS:
-        return await message.reply_text(
-            _["sudo_1"].format(message.reply_to_message.from_user.mention)
-            if message.reply_to_message
-            else _["sudo_1"].format("**kullanıcı**")
-        )
+    # Zaten sudo mu?
+    if target_id in SUDOERS or target_id in await get_sudoers():
+        try:
+            u = await app.get_users(target_id)
+            mention = u.mention
+        except Exception:
+            mention = f"`{target_id}`"
+        return await message.reply_text(_["sudo_1"].format(mention))
 
     added = await add_sudo(target_id)
     if added:
         SUDOERS.add(target_id)  # RAM senkron
         try:
-            user_obj = await app.get_users(target_id)
-            mention = user_obj.mention
+            u = await app.get_users(target_id)
+            mention = u.mention
         except Exception:
             mention = f"`{target_id}`"
         return await message.reply_text(_["sudo_2"].format(mention))
+
     return await message.reply_text("Failed")
 
 
@@ -92,9 +96,7 @@ async def useradd(client, message: Message, _):
 async def userdel(client, message: Message, _):
     if not MONGO_DB_URI:
         return await message.reply_text(
-            _["general_1"]
-            if "general_1" in _
-            else "**Bu özellik için MONGO_DB_URI gerekli.**"
+            _["general_1"] if "general_1" in _ else "**Bu özellik için MONGO_DB_URI gerekli.**"
         )
 
     # reply ile silme
@@ -113,30 +115,26 @@ async def userdel(client, message: Message, _):
             )
 
     # OWNER koruması
-    try:
-        if isinstance(OWNER_ID, (list, tuple)):
-            if target_id in OWNER_ID:
-                return await message.reply_text(
-                    _["sudo_9"] if "sudo_9" in _ else "Sahibi sudo listesinden kaldıramazsın."
-                )
-        elif isinstance(OWNER_ID, int) and target_id == OWNER_ID:
-            return await message.reply_text(
-                _["sudo_9"] if "sudo_9" in _ else "Sahibi sudo listesinden kaldıramazsın."
-            )
-    except Exception:
-        pass
+    if _is_owner(target_id):
+        return await message.reply_text(
+            _["sudo_9"] if "sudo_9" in _ else "Sahibi sudo listesinden kaldıramazsın."
+        )
 
-    if target_id not in SUDOERS:
-        return await message.reply_text(_["sudo_3"])
+    # Üyelik kontrolünü DB'den yap (RAM uyuşmazlığı silmeyi engellemesin)
+    db_sudos = await get_sudoers()
+    if target_id not in db_sudos:
+        return await message.reply_text(_["sudo_3"])  # "Sudo parçası değil"
 
     removed = await remove_sudo(target_id)
     if removed:
-        # RAM senkron
-        if target_id in SUDOERS:
-            SUDOERS.remove(target_id)
-        return await message.reply_text(_["sudo_4"])
+        # RAM senkron: listede varsa çıkar
+        try:
+            SUDOERS.discard(target_id)
+        except Exception:
+            pass
+        return await message.reply_text(_["sudo_4"])  # "Sudo'dan kaldırıldı"
 
-    # detaylı geri bildirim
+    # Hâlâ buraya düştüyse DB yazılamadı
     return await message.reply_text(
         _["sudo_10"] if "sudo_10" in _ else "Bir şeyler ters gitti, silinemedi."
     )
@@ -145,7 +143,7 @@ async def userdel(client, message: Message, _):
 @app.on_message(filters.command(SUDOUSERS_COMMAND) & ~BANNED_USERS)
 @language
 async def sudoers_list(client, message: Message, _):
-    text = _["sudo_5"]
+    text = _["sudo_5"]  # başlık
     count = 0
 
     # OWNER'lar
@@ -159,22 +157,23 @@ async def sudoers_list(client, message: Message, _):
         except Exception:
             continue
 
-    # SUDOERS (OWNER hariç)
-    smex = 0
-    for user_id in list(SUDOERS):
-        if user_id in owners:
+    # SUDOERS (DB'den) - OWNER hariç
+    db_sudos = await get_sudoers()
+    others_added = False
+    for uid in db_sudos:
+        if uid in owners:
             continue
         try:
-            user = await app.get_users(user_id)
+            user = await app.get_users(uid)
             name = user.mention or user.first_name
-            if smex == 0:
-                smex += 1
-                text += _["sudo_6"]
+            if not others_added:
+                text += _["sudo_6"]  # "SUDO USERS:"
+                others_added = True
             count += 1
             text += f"{count}➤ {name}\n"
         except Exception:
             continue
 
     if count == 0:
-        return await message.reply_text(_["sudo_7"])
+        return await message.reply_text(_["sudo_7"])  # "Sudo yok"
     return await message.reply_text(text)
