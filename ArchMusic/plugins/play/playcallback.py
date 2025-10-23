@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 #
-# ParsMuzikBot - Play Callback Controller
-# Dark Steel System • Güçlü Kontrol • TR UI
+# ParsMuzikBot - Play Callback Controller (FULL)
+# Telegram Blue • TR UI • OWNER/SUDO güvenlik
 # by @Kralderdo
 
 from pyrogram import filters
@@ -13,7 +13,7 @@ from ArchMusic.utils.decorators.language import languageCB
 from ArchMusic.utils.inline.play import (
     stream_markup,
     track_markup,
-    slider_markup,          # slider şu an kullanmıyoruz ama import kalabilir
+    slider_markup,          # slider kullanmıyoruz ama import kalabilir
     playlist_markup,
     livestream_markup,
 )
@@ -21,20 +21,25 @@ from ArchMusic.utils.stream.stream import stream
 from ArchMusic.utils import time_to_seconds
 import config
 
+
 # ──────────────────────────────────────────────────────────
-# Güvenlik: sadece OWNER (ve varsa SUDO listen) kontrol etsin
-# OWNER_ID config'te list(int) olarak geliyor
+# Güvenlik – sadece OWNER/SUDO kullansın
 def authorized(user_id: int) -> bool:
     try:
         return int(user_id) in OWNER_ID
     except Exception:
         return False
 
-# İmza
-BOT_SIGNATURE = "⚙️ Powered by Prenses Müzik"
+# Premium imza
+BRAND_SIGNATURE = (
+    "🎧 PARS MUSIC SYSTEM\n"
+    "🔥 Telegram'ın En Hızlı Müzik Botu\n"
+    "📢 @Pars_Sohbet_TR"
+)
+
 
 # ──────────────────────────────────────────────────────────
-# ▶️ YouTube Ses/Video Başlatma (MusicStream callback)
+# ▶️ MusicStream (Müzik/Video Başlatma)
 # callback_data: "MusicStream {videoid}|{user_id}|a|c|d"
 #                                 0          1       2 3 4
 #   mode: a=audio v=video
@@ -47,33 +52,33 @@ async def music_stream_cb(client, cq: CallbackQuery, _):
     try:
         data = cq.data.strip().split("|")
         videoid = data[0].replace("MusicStream ", "").strip()
-        _req_user = int(data[1]) if len(data) > 1 and data[1].isdigit() else None
-        mode = data[2] if len(data) > 2 else "a"       # a / v
+        req_user = int(data[1]) if len(data) > 1 and data[1].isdigit() else None
+        mode = data[2] if len(data) > 2 else "a"      # a / v
         channel = True if len(data) > 3 and data[3] == "c" else False
         fplay = True if len(data) > 4 and data[4] == "f" else False
 
         chat_id = cq.message.chat.id
         caller_id = cq.from_user.id
 
-        # Güvenlik
+        # Yetki
         if not authorized(caller_id):
             return await cq.answer("⛔ Bu butonu kullanma yetkin yok!", show_alert=True)
 
         await cq.answer("⏳ İşleniyor...")
 
-        # YouTube bilgisi
+        # YouTube ayrıntıları
         url = f"https://www.youtube.com/watch?v={videoid}"
         try:
             details, _track_id = await YouTube.track(url)
         except Exception as e:
             return await cq.message.reply_text(f"❌ YouTube verisi alınamadı: `{e}`")
 
-        # Süre limiti kontrolü (varsa)
+        # Süre limiti
         if details.get("duration_min"):
             dur_sec = time_to_seconds(details["duration_min"])
             if dur_sec and dur_sec > config.DURATION_LIMIT:
                 lim = config.DURATION_LIMIT_MIN
-                return await cq.message.reply_text(f"⛔ Maksimum {lim} dakikadan uzun parçalar çalınamaz.")
+                return await cq.message.reply_text(f"⛔ En fazla {lim} dk uzunluğunda çalabilirim.")
 
         # Çalma
         try:
@@ -98,21 +103,22 @@ async def music_stream_cb(client, cq: CallbackQuery, _):
             f"✅ **Çalma Başladı**\n"
             f"• **Mod:** {modetxt}\n"
             f"• **Parça:** {details.get('title','Bilinmiyor')}\n"
-            f"{BOT_SIGNATURE}"
+            f"{BRAND_SIGNATURE}"
         )
         try:
-            buttons = stream_markup(_, videoid, chat_id)
-            await cq.message.edit_caption(caption, reply_markup=InlineKeyboardMarkup(buttons))
+            btn = InlineKeyboardMarkup(stream_markup(_, videoid, chat_id))
+            # Foto/Caption varsa
+            await cq.message.edit_caption(caption, reply_markup=btn)
         except Exception:
-            # mesajda foto/caption yoksa düz metin olarak gönder
+            # Yoksa yeni mesaj
             await cq.message.reply_text(caption, reply_markup=InlineKeyboardMarkup(stream_markup(_, videoid, chat_id)))
 
     except Exception as e:
-        return await cq.message.reply_text(f"⚠️ Play Callback Hatası: `{e}`")
+        return await cq.message.reply_text(f"⚠️ MusicStream Hatası: `{e}`")
 
 
 # ──────────────────────────────────────────────────────────
-# 🔴 YouTube Canlı Yayın (LiveStream callback)
+# 🔴 LiveStream (YouTube canlı)
 # callback_data: "LiveStream {videoid}|{user_id}|a/v|c/g|f/d"
 # ──────────────────────────────────────────────────────────
 @app.on_callback_query(filters.regex(r"^LiveStream ") & ~BANNED_USERS)
@@ -130,7 +136,7 @@ async def live_stream_cb(client, cq: CallbackQuery, _):
         await cq.answer("📡 Canlı başlatılıyor...")
 
         url = f"https://www.youtube.com/watch?v={videoid}"
-        # Çoğu durumda canlı yayınlar için direkt stream_call kullanılabilir
+        # Bazı repolarda stream_call canlı için yeterli olur
         try:
             await ArchMusic.stream_call(url)
         except Exception:
@@ -142,18 +148,18 @@ async def live_stream_cb(client, cq: CallbackQuery, _):
             except Exception as e:
                 return await cq.message.reply_text(f"⚠️ Canlı yayın hatası: `{e}`")
 
-        cap = f"🔴 **Canlı Yayın Başlatıldı** — {'🎬 Video' if mode=='v' else '🎧 Ses'}\n{BOT_SIGNATURE}"
+        cap = f"🔴 **Canlı Yayın Başlatıldı** — {'🎬 Video' if mode=='v' else '🎧 Ses'}\n{BRAND_SIGNATURE}"
         try:
             await cq.message.edit_caption(cap, reply_markup=InlineKeyboardMarkup(stream_markup(_, videoid, chat_id)))
         except Exception:
             await cq.message.reply_text(cap, reply_markup=InlineKeyboardMarkup(stream_markup(_, videoid, chat_id)))
 
     except Exception as e:
-        return await cq.message.reply_text(f"⚠️ Live Callback Hatası: `{e}`")
+        return await cq.message.reply_text(f"⚠️ LiveStream Hatası: `{e}`")
 
 
 # ──────────────────────────────────────────────────────────
-# 🎛 Yönetim Aksiyonları (Pause / Resume / Stop / Skip / Loop / Seek)
+# 🎛 Yönetim – Pause / Resume / Stop / Skip / Loop / Seek
 # callback_data: "ADMIN <Action>|<chat_id>"
 #   Action: Pause, Resume, Stop, Skip, Loop, 1,2,3,4 (geri/ileri 10/30sn)
 # ──────────────────────────────────────────────────────────
@@ -164,9 +170,9 @@ async def admin_callbacks(client, cq: CallbackQuery, _):
         if not authorized(cq.from_user.id):
             return await cq.answer("⛔ Bu paneli kullanamazsın!", show_alert=True)
 
-        data = cq.data.split("|")
-        action = data[0].replace("ADMIN ", "").strip()
-        chat_id = int(data[1]) if len(data) > 1 else cq.message.chat.id
+        parts = cq.data.split("|")
+        action = parts[0].replace("ADMIN ", "").strip()
+        chat_id = int(parts[1]) if len(parts) > 1 else cq.message.chat.id
 
         await cq.answer()
 
@@ -180,28 +186,24 @@ async def admin_callbacks(client, cq: CallbackQuery, _):
 
         elif action == "Stop":
             await ArchMusic.stop_stream(chat_id)
-            return await cq.message.reply_text("⏹ **Kapatıldı**")
+            return await cq.message.reply_text("⏹ **Durduruldu**")
 
         elif action == "Skip":
             try:
                 await ArchMusic.skip_stream(chat_id)
                 return await cq.message.reply_text("⏭ **Sonrakine geçildi**")
             except Exception:
-                # bazı sürümlerde skip yoksa stop + yeniden başlatma tercih edilir
                 await ArchMusic.stop_stream(chat_id)
                 return await cq.message.reply_text("⏭ **Atlandı (stop)**")
 
         elif action == "Loop":
-            # Repoya göre farklılık gösterebilir, destek yoksa sadece mesaj
             try:
                 await ArchMusic.loop_stream(chat_id)
                 return await cq.message.reply_text("🔁 **Tekrar modu aktif**")
             except Exception:
                 return await cq.message.reply_text("ℹ️ **Tekrar modu bu sürümde desteklenmiyor**")
 
-        # Seek kısa yolları (10 / 30 sn ileri/geri)
         elif action in {"1", "2", "3", "4"}:
-            # 1: -10, 2: +10, 3: -30, 4: +30
             delta = {"1": -10, "2": 10, "3": -30, "4": 30}[action]
             try:
                 await ArchMusic.seek_stream(chat_id, delta)
@@ -218,8 +220,7 @@ async def admin_callbacks(client, cq: CallbackQuery, _):
 
 
 # ──────────────────────────────────────────────────────────
-# 🔊 Ses Kontrolü (+10 / -10)
-# callback_data: "VOLUME|up|<chat_id>" veya "VOLUME|down|<chat_id>"
+# 🔊 Ses Kontrol – VOLUME|up|chat / VOLUME|down|chat
 # ──────────────────────────────────────────────────────────
 @app.on_callback_query(filters.regex(r"^VOLUME\|") & ~BANNED_USERS)
 async def volume_control(client, cq: CallbackQuery):
@@ -252,25 +253,21 @@ async def volume_control(client, cq: CallbackQuery):
 
 
 # ──────────────────────────────────────────────────────────
-# 🧭 Panel/Markup istekleri (temel)
-# Bazı inline dosyalar "PanelMarkup ..." veya "MainMarkup ..." vb. gönderir.
-# Burada basit şekilde yanıtlıyoruz ki hata vermesin.
+# 🧭 Diğer tıklamalar (Panel/Pages/GetTimer/close vb.) – Hata engelle
 # ──────────────────────────────────────────────────────────
-@app.on_callback_query(filters.regex(r"^(PanelMarkup|MainMarkup|Pages|GetTimer|close|forceclose)"))
+@app.on_callback_query(filters.regex(r"^(PanelMarkup|MainMarkup|Pages|GetTimer|close|forceclose|nonclickable)"))
 async def misc_callbacks(client, cq: CallbackQuery):
     try:
-        # Kapatma
         if cq.data.startswith("close") or cq.data.startswith("forceclose"):
             try:
                 await cq.message.delete()
             except Exception:
                 pass
             return await cq.answer()
-
-        # Panel/Pages/TIMER tıklamalarında sadece bilgilendir
-        return await cq.answer("🛠 Panel güncellendi", show_alert=False)
+        # Bilgi amaçlı sessiz onay
+        return await cq.answer("🛠", show_alert=False)
     except Exception:
         pass
 
 
-print("[ParsMuzikBot] ✅ playcallback.py yüklendi – Dark Steel kontrol paneli aktif")
+print("[ParsMuzikBot] ✅ playcallback.py yüklendi – FULL kontrol paneli aktif")
