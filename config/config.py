@@ -35,7 +35,7 @@ SONG_DOWNLOAD_DURATION = int(getenv("SONG_DOWNLOAD_DURATION_LIMIT", "180"))
 LOG_GROUP_ID = int(getenv("LOG_GROUP_ID", ""))
 
 # A name for the Music bot
-MUSIC_BOT_NAME = getenv("MUSIC_BOT_NAME", "Kumsal Muzik")
+MUSIC_BOT_NAME = getenv("MUSIC_BOT_NAME", "Pars Muzik")
 
 # Owner ID (your user ID)
 OWNER_ID = list(map(int, getenv("OWNER_ID", "").split()))
@@ -53,7 +53,7 @@ GIT_TOKEN = getenv("GIT_TOKEN", "")
 
 # Support links
 SUPPORT_CHANNEL = getenv("SUPPORT_CHANNEL", "")
-SUPPORT_GROUP = getenv("SUPPORT_GROUP", None)
+SUPPORT_GROUP = getenv("SUPPORT_GROUP", "")
 
 # Auto leave assistant
 AUTO_LEAVING_ASSISTANT = getenv("AUTO_LEAVING_ASSISTANT", "false")
@@ -82,6 +82,10 @@ SPOTIFY_CLIENT_SECRET = getenv("SPOTIFY_CLIENT_SECRET", "80ffd296320e49299830e80
 
 # ✅ YouTube API Key (EKLENDİ)
 YOUTUBE_API_KEY = "AIzaSyBWEUJjXpdrWP9lNdkhuiynVjyqnIzd-So"
+
+# ✅ Assistant Fix (EKLENDİ)
+ASSISTANT_USERNAME = "Pars_asistan"
+ASSISTANT_ID = 8481614862
 
 # Video stream limit
 VIDEO_STREAM_LIMIT = int(getenv("VIDEO_STREAM_LIMIT", "10"))
@@ -121,110 +125,9 @@ userstats = {}
 clean = {}
 autoclean = []
 
-# Images
-START_IMG_URL = getenv(
-     "START_IMG_URL", 
-     "https://ibb.co/0jsDgHSj",
-)
-
-PING_IMG_URL = getenv(
-    "PING_IMG_URL",
-    "https://ibb.co/0jsDgHSj",
-)
-
-PLAYLIST_IMG_URL = getenv(
-    "PLAYLIST_IMG_URL",
-    "https://ibb.co/0jsDgHSj",
-)
-
-GLOBAL_IMG_URL = getenv(
-    "GLOBAL_IMG_URL",
-    "https://pbs.twimg.com/media/GlYNUMFWEAA4jEK?format=jpg&name=small",
-)
-
-STATS_IMG_URL = getenv(
-    "STATS_IMG_URL",
-    "https://pbs.twimg.com/media/GlYNUMFWEAA4jEK?format=jpg&name=small",
-)
-
-TELEGRAM_AUDIO_URL = getenv(
-    "TELEGRAM_AUDIO_URL",
-    "https://pbs.twimg.com/media/GlYNUMFWEAA4jEK?format=jpg&name=small",
-)
-
-TELEGRAM_VIDEO_URL = getenv(
-    "TELEGRAM_VIDEO_URL",
-    "https://pbs.twimg.com/media/GlYNUMFWEAA4jEK?format=jpg&name=small",
-)
-
-STREAM_IMG_URL = getenv(
-    "STREAM_IMG_URL",
-    "https://pbs.twimg.com/media/GlYNUMFWEAA4jEK?format=jpg&name=small",
-)
-
-SOUNCLOUD_IMG_URL = getenv(
-    "SOUNCLOUD_IMG_URL",
-    "https://pbs.twimg.com/media/GlYNUMFWEAA4jEK?format=jpg&name=small",
-)
-
-YOUTUBE_IMG_URL = getenv(
-    "YOUTUBE_IMG_URL",
-    "https://pbs.twimg.com/media/GlYNUMFWEAA4jEK?format=jpg&name=small",
-)
-
-SPOTIFY_ARTIST_IMG_URL = getenv(
-    "SPOTIFY_ARTIST_IMG_URL",
-    "https://pbs.twimg.com/media/GlYNUMFWEAA4jEK?format=jpg&name=small",
-)
-
-SPOTIFY_ALBUM_IMG_URL = getenv(
-    "SPOTIFY_ALBUM_IMG_URL",
-    "https://pbs.twimg.com/media/GlYNUMFWEAA4jEK?format=jpg&name=small",
-)
-
-SPOTIFY_PLAYLIST_IMG_URL = getenv(
-    "SPOTIFY_PLAYLIST_IMG_URL",
-    "https://pbs.twimg.com/media/GlYNUMFWEAA4jEK?format=jpg&name=small",
-)
-
 def time_to_seconds(time):
     stringt = str(time)
-    return sum(
-        int(x) * 60**i
-        for i, x in enumerate(reversed(stringt.split(":")))
-    )
+    return sum(int(x) * 60**i for i, x in enumerate(reversed(stringt.split(":"))))
 
 DURATION_LIMIT = int(time_to_seconds(f"{DURATION_LIMIT_MIN}:00"))
-SONG_DOWNLOAD_DURATION_LIMIT = int(
-    time_to_seconds(f"{SONG_DOWNLOAD_DURATION}:00")
-)
-
-if SUPPORT_CHANNEL:
-    if not re.match("(?:http|https)://", SUPPORT_CHANNEL):
-        print("[ERROR] - SUPPORT_CHANNEL url must start with https://")
-        sys.exit()
-
-if SUPPORT_GROUP:
-    if not re.match("(?:http|https)://", SUPPORT_GROUP):
-        print("[ERROR] - SUPPORT_GROUP url must start with https://")
-        sys.exit()
-
-if UPSTREAM_REPO:
-    if not re.match("(?:http|https)://", UPSTREAM_REPO):
-        print("[ERROR] - UPSTREAM_REPO url must start with https://")
-        sys.exit()
-
-if GITHUB_REPO:
-    if not re.match("(?:http|https)://", GITHUB_REPO):
-        print("[ERROR] - GITHUB_REPO url must start with https://")
-        sys.exit()
-
-if PING_IMG_URL:
-    if PING_IMG_URL != "assets/Ping.jpeg":
-        if not re.match("(?:http|https)://", PING_IMG_URL):
-            print("[ERROR] - PING_IMG_URL must start with https://")
-            sys.exit()
-
-if not MUSIC_BOT_NAME.isascii():
-    print("[ERROR] - MUSIC_BOT_NAME must be ASCII characters only!")
-    sys.exit()
+SONG_DOWNLOAD_DURATION_LIMIT = int(time_to_seconds(f"{SONG_DOWNLOAD_DURATION}:00"))
