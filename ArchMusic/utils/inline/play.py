@@ -296,3 +296,21 @@ def stream_markup_timer(_, chat_id: int, played, duration):
             )
         ],
     ]
+# =========================================================
+# Telegram Timer Markup FIX (Hata Çözümü)
+# =========================================================
+def telegram_markup_timer(_, chat_id: int, played, duration):
+    return [
+        [
+            InlineKeyboardButton(
+                text=f"🎵 {played} / {duration}",
+                callback_data="timer"
+            )
+        ],
+        [
+            InlineKeyboardButton(
+                text=_["CLOSEMENU_BUTTON"],
+                callback_data="close"
+            )
+        ],
+    ]
