@@ -1,6 +1,5 @@
 # ArchMusic/core/call.py
-# Tek-Asistan Stabil Sürüm (STRING_SESSION / STRING1)
-# Düzenleme: ParsMüzikBot için
+# Tek-Asistan Stabil Sürüm (STRING1)
 
 import asyncio
 from datetime import datetime, timedelta
@@ -36,11 +35,10 @@ from ArchMusic.utils.database import (
 )
 from ArchMusic.utils.exceptions import AssistantErr
 
-# IMPORT ALIAS: Depoda bazı yerler "telegram_markup" bekliyor.
-# Bizde sadece audio/video/stream markup var. Hata olmasın diye alias veriyoruz.
+# Bazı modüller telegram_markup bekliyor; audio panelini aliaslıyoruz.
 from ArchMusic.utils.inline.play import (
     stream_markup,
-    audio_markup as telegram_markup,   # <— alias
+    audio_markup as telegram_markup,
 )
 
 autoend = {}
@@ -56,9 +54,7 @@ async def _clear_(chat_id: int):
 
 class Call:
     """
-    Tek-asistan mimarisi.
-    - Sadece STRING_SESSION (STRING1) ile çalışır.
-    - Eski çoklu-asistan API'siyle uyum için .one alanı bırakıldı.
+    Tek-asistan mimarisi (STRING1).
     """
 
     def __init__(self):
@@ -69,26 +65,20 @@ class Call:
             api_hash=config.API_HASH,
             session_string=str(config.STRING1),
         )
-
-        # PYTGCalls bağlama
+        # PyTgCalls
         self.one = PyTgCalls(self.userbot1, cache_duration=100)
 
-        # Uyumluluk için (çoklu asistanı kullanmıyoruz ama alanları var kalsın)
+        # Uyumluluk alanları
         self.two = None
         self.three = None
         self.four = None
         self.five = None
 
-    # ========= Yardımcılar =========
-
     async def _assistant_client(self, chat_id: int) -> PyTgCalls:
-        """
-        group_assistant() bazı projelerde Call instance'ından .one/.two vs. arıyor.
-        Biz tek asistan kullandığımızdan direkt self.one döner.
-        """
+        # Çoklu-asistan arayan yardımcılarla uyum için.
         return self.one
 
-    # ========= Medya Kontrolleri =========
+    # ==== Kontroller ====
 
     async def pause_stream(self, chat_id: int):
         assistant = await self._assistant_client(chat_id)
@@ -134,8 +124,8 @@ class Call:
         video_stream_quality = await get_video_bitrate(chat_id)
         stream = (
             AudioVideoPiped(link, audio_parameters=audio_stream_quality, video_parameters=video_stream_quality)
-            if video
-            else AudioPiped(link, audio_parameters=audio_stream_quality)
+            if video else
+            AudioPiped(link, audio_parameters=audio_stream_quality)
         )
         await assistant.change_stream(chat_id, stream)
 
@@ -150,8 +140,8 @@ class Call:
                 video_parameters=video_stream_quality,
                 additional_ffmpeg_parameters=f"-ss {to_seek} -to {duration}",
             )
-            if mode == "video"
-            else AudioPiped(
+            if mode == "video" else
+            AudioPiped(
                 file_path,
                 audio_parameters=audio_stream_quality,
                 additional_ffmpeg_parameters=f"-ss {to_seek} -to {duration}",
@@ -160,9 +150,7 @@ class Call:
         await assistant.change_stream(chat_id, stream)
 
     async def stream_call(self, link: str):
-        """
-        LOG_GROUP_ID üzerinde kısa bir join/leave testi yapar.
-        """
+        # Log grubunda hızlı join/leave testi
         assistant = await self._assistant_client(config.LOG_GROUP_ID)
         await assistant.join_group_call(
             config.LOG_GROUP_ID,
@@ -172,20 +160,18 @@ class Call:
         await asyncio.sleep(0.5)
         await assistant.leave_group_call(config.LOG_GROUP_ID)
 
-    # ========= Asistanı gruba sokma =========
+    # ==== Asistanı gruba sokma ====
 
     async def join_assistant(self, original_chat_id: int, chat_id: int):
         language = await get_lang(original_chat_id)
         _ = get_string(language)
 
-        # get_assistant(chat_id) çoğu şablonda asistan profili/kimliği döndürür.
-        # Biz zaten userbot1 ile çalıştığımız için onu kullanıyoruz.
-        userbot = await get_assistant(chat_id)
+        userbot = await get_assistant(chat_id)  # asistan profili/id
         try:
             try:
                 get = await app.get_chat_member(chat_id, userbot.id)
             except ChatAdminRequired:
-                raise AssistantErr(_["call_1"])  # "Bot admin değil" vb.
+                raise AssistantErr(_["call_1"])  # Botu admin yapın, vb.
 
             if get.status in (ChatMemberStatus.BANNED, ChatMemberStatus.LEFT):
                 raise AssistantErr(_["call_2"].format(userbot.username, userbot.id))
@@ -200,14 +186,11 @@ class Call:
                 except Exception as e:
                     raise AssistantErr(_["call_3"].format(e))
             else:
-                # Davet linki ile
                 try:
                     try:
-                        invitelink = chat.invite_link
-                        if invitelink is None:
-                            invitelink = await app.export_chat_invite_link(chat_id)
+                        invitelink = chat.invite_link or await app.export_chat_invite_link(chat_id)
                     except ChatAdminRequired:
-                        raise AssistantErr(_["call_4"])  # "Davet linki oluşturmak için admin yapın" gibi
+                        raise AssistantErr(_["call_4"])
                     except Exception as e:
                         raise AssistantErr(e)
 
@@ -223,29 +206,22 @@ class Call:
                 except Exception as e:
                     raise AssistantErr(_["call_3"].format(e))
 
-    # ========= Çağrıya katılma =========
+    # ==== Çağrıya katılma ====
 
-    async def join_call(
-        self,
-        chat_id: int,
-        original_chat_id: int,
-        link: str,
-        video: Union[bool, str] = None,
-    ):
+    async def join_call(self, chat_id: int, original_chat_id: int, link: str, video: Union[bool, str] = None):
         assistant = await self._assistant_client(chat_id)
         audio_stream_quality = await get_audio_bitrate(chat_id)
         video_stream_quality = await get_video_bitrate(chat_id)
 
         stream = (
             AudioVideoPiped(link, audio_parameters=audio_stream_quality, video_parameters=video_stream_quality)
-            if video
-            else AudioPiped(link, audio_parameters=audio_stream_quality)
+            if video else
+            AudioPiped(link, audio_parameters=audio_stream_quality)
         )
 
         try:
             await assistant.join_group_call(chat_id, stream, stream_type=StreamType().pulse_stream)
         except NoActiveGroupCall:
-            # Grup sesli sohbeti kapalı -> önce asistana gruba sok, sonra tekrar dene
             try:
                 await self.join_assistant(original_chat_id, chat_id)
             except Exception as e:
@@ -255,8 +231,8 @@ class Call:
             except Exception:
                 raise AssistantErr(
                     "**Aktif Sesli Sohbet Bulunamadı**\n\n"
-                    "Lütfen grubun sesli sohbetini açın. Açık ise kapatıp yeniden başlatın "
-                    "ve sorun devam ederse /restart deneyin."
+                    "Lütfen grubun sesli sohbetini açın. Açık ise kapatıp yeniden başlatın; "
+                    "sorun devam ederse /restart deneyin."
                 )
         except AlreadyJoinedError:
             raise AssistantErr(
@@ -282,7 +258,7 @@ class Call:
             if users == 1:
                 autoend[chat_id] = datetime.now() + timedelta(minutes=AUTO_END_TIME)
 
-    # ========= Kuyruk değişimi =========
+    # ==== Kuyruk geçişi ====
 
     async def change_stream(self, client: PyTgCalls, chat_id: int):
         check = db.get(chat_id)
@@ -296,14 +272,12 @@ class Call:
                 loop = loop - 1
                 await set_loop(chat_id, loop)
 
-            if popped:
-                if config.AUTO_DOWNLOADS_CLEAR == str(True):
-                    # auto_clean fonksiyonu bazı şablonlarda var olabilir/yok olabilir
-                    try:
-                        from ArchMusic.utils.stream.autoclear import auto_clean
-                        await auto_clean(popped)
-                    except Exception:
-                        pass
+            if popped and config.AUTO_DOWNLOADS_CLEAR == str(True):
+                try:
+                    from ArchMusic.utils.stream.autoclear import auto_clean
+                    await auto_clean(popped)
+                except Exception:
+                    pass
 
             if not check:
                 await _clear_(chat_id)
@@ -316,7 +290,6 @@ class Call:
             except Exception:
                 return
 
-        # Yeni parçayı başlat
         queued = check[0]["file"]
         language = await get_lang(chat_id)
         _ = get_string(language)
@@ -340,7 +313,6 @@ class Call:
                 if n == 0:
                     return await app.send_message(original_chat_id, text=_["call_9"])
                 await client.change_stream(chat_id, mk_stream(link, str(streamtype) == "video"))
-
                 await app.send_message(
                     chat_id=original_chat_id,
                     text=_["stream_1"].format(
@@ -413,13 +385,9 @@ class Call:
         except Exception:
             return await app.send_message(original_chat_id, text=_["call_9"])
 
-    # ========= Başlat / Durdur =========
+    # ==== Başlat / Durdur ====
 
     async def start(self):
-        """
-        Pyrogram + PyTgCalls başlatma.
-        Alt sınıf kullanmadığımız için _is_running hatası olmaz.
-        """
         await self.userbot1.start()
         await self.one.start()
         LOGGER.info("Assistant client ve PyTgCalls başlatıldı (STRING1).")
@@ -432,5 +400,5 @@ class Call:
         LOGGER.info("Assistant client ve PyTgCalls durduruldu.")
 
 
-# Proje genelinde kullanılan isim:
+# Projede beklenen isim
 ArchMusic = Call()
