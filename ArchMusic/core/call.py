@@ -1,7 +1,6 @@
-# -*- coding: utf-8 -*-
-#
-# ArchMusic - Call Controller (Fix)
-#
+# ArchMusic/core/call.py
+# Tek-Asistan Stabil Sürüm (STRING_SESSION / STRING1)
+# Düzenleme: ParsMüzikBot için
 
 import asyncio
 from datetime import datetime, timedelta
@@ -10,6 +9,7 @@ from typing import Union
 from pyrogram import Client
 from pyrogram.enums import ChatMemberStatus
 from pyrogram.errors import ChatAdminRequired, UserAlreadyParticipant, UserNotParticipant
+
 from pytgcalls import PyTgCalls, StreamType
 from pytgcalls.exceptions import AlreadyJoinedError, NoActiveGroupCall, TelegramServerError
 from pytgcalls.types.input_stream import AudioPiped, AudioVideoPiped
@@ -36,13 +36,13 @@ from ArchMusic.utils.database import (
 )
 from ArchMusic.utils.exceptions import AssistantErr
 
-# 🔧 ÖNEMLİ: inline.play içinden telegram_markup yoksa audio_markup'u alias yapıyoruz
+# IMPORT ALIAS: Depoda bazı yerler "telegram_markup" bekliyor.
+# Bizde sadece audio/video/stream markup var. Hata olmasın diye alias veriyoruz.
 from ArchMusic.utils.inline.play import (
     stream_markup,
-    audio_markup as telegram_markup,  # ← alias
+    audio_markup as telegram_markup,   # <— alias
 )
 
-# Otomatik sonlandırma sayaçları
 autoend = {}
 counter = {}
 AUTO_END_TIME = 3  # dakika
@@ -54,74 +54,60 @@ async def _clear_(chat_id: int):
     await remove_active_chat(chat_id)
 
 
-class Call(PyTgCalls):
-    """Sesli sohbet ve yardımcı (assistant) yönetimi"""
+class Call:
+    """
+    Tek-asistan mimarisi.
+    - Sadece STRING_SESSION (STRING1) ile çalışır.
+    - Eski çoklu-asistan API'siyle uyum için .one alanı bırakıldı.
+    """
 
     def __init__(self):
-        # 1. string
+        # PYROGRAM USERBOT (Assistant)
         self.userbot1 = Client(
             "ArchMusicString1",
             api_id=config.API_ID,
             api_hash=config.API_HASH,
-            session_string=str(config.STRING1 or ""),
+            session_string=str(config.STRING1),
         )
+
+        # PYTGCalls bağlama
         self.one = PyTgCalls(self.userbot1, cache_duration=100)
 
-        # 2. string
-        self.userbot2 = Client(
-            "ArchMusicString2",
-            api_id=config.API_ID,
-            api_hash=config.API_HASH,
-            session_string=str(config.STRING2 or ""),
-        )
-        self.two = PyTgCalls(self.userbot2, cache_duration=100)
+        # Uyumluluk için (çoklu asistanı kullanmıyoruz ama alanları var kalsın)
+        self.two = None
+        self.three = None
+        self.four = None
+        self.five = None
 
-        # 3. string
-        self.userbot3 = Client(
-            "ArchMusicString3",
-            api_id=config.API_ID,
-            api_hash=config.API_HASH,
-            session_string=str(config.STRING3 or ""),
-        )
-        self.three = PyTgCalls(self.userbot3, cache_duration=100)
+    # ========= Yardımcılar =========
 
-        # 4. string
-        self.userbot4 = Client(
-            "ArchMusicString4",
-            api_id=config.API_ID,
-            api_hash=config.API_HASH,
-            session_string=str(config.STRING4 or ""),
-        )
-        self.four = PyTgCalls(self.userbot4, cache_duration=100)
+    async def _assistant_client(self, chat_id: int) -> PyTgCalls:
+        """
+        group_assistant() bazı projelerde Call instance'ından .one/.two vs. arıyor.
+        Biz tek asistan kullandığımızdan direkt self.one döner.
+        """
+        return self.one
 
-        # 5. string
-        self.userbot5 = Client(
-            "ArchMusicString5",
-            api_id=config.API_ID,
-            api_hash=config.API_HASH,
-            session_string=str(config.STRING5 or ""),
-        )
-        self.five = PyTgCalls(self.userbot5, cache_duration=100)
+    # ========= Medya Kontrolleri =========
 
-    # ======== Basit kontrol eylemleri ========
     async def pause_stream(self, chat_id: int):
-        assistant = await group_assistant(self, chat_id)
+        assistant = await self._assistant_client(chat_id)
         await assistant.pause_stream(chat_id)
 
     async def resume_stream(self, chat_id: int):
-        assistant = await group_assistant(self, chat_id)
+        assistant = await self._assistant_client(chat_id)
         await assistant.resume_stream(chat_id)
 
     async def mute_stream(self, chat_id: int):
-        assistant = await group_assistant(self, chat_id)
+        assistant = await self._assistant_client(chat_id)
         await assistant.mute_stream(chat_id)
 
     async def unmute_stream(self, chat_id: int):
-        assistant = await group_assistant(self, chat_id)
+        assistant = await self._assistant_client(chat_id)
         await assistant.unmute_stream(chat_id)
 
     async def stop_stream(self, chat_id: int):
-        assistant = await group_assistant(self, chat_id)
+        assistant = await self._assistant_client(chat_id)
         try:
             await _clear_(chat_id)
             await assistant.leave_group_call(chat_id)
@@ -129,7 +115,7 @@ class Call(PyTgCalls):
             pass
 
     async def force_stop_stream(self, chat_id: int):
-        assistant = await group_assistant(self, chat_id)
+        assistant = await self._assistant_client(chat_id)
         try:
             check = db.get(chat_id)
             check.pop(0)
@@ -143,39 +129,41 @@ class Call(PyTgCalls):
             pass
 
     async def skip_stream(self, chat_id: int, link: str, video: Union[bool, str] = None):
-        assistant = await group_assistant(self, chat_id)
-        a_q = await get_audio_bitrate(chat_id)
-        v_q = await get_video_bitrate(chat_id)
+        assistant = await self._assistant_client(chat_id)
+        audio_stream_quality = await get_audio_bitrate(chat_id)
+        video_stream_quality = await get_video_bitrate(chat_id)
         stream = (
-            AudioVideoPiped(link, audio_parameters=a_q, video_parameters=v_q)
+            AudioVideoPiped(link, audio_parameters=audio_stream_quality, video_parameters=video_stream_quality)
             if video
-            else AudioPiped(link, audio_parameters=a_q)
+            else AudioPiped(link, audio_parameters=audio_stream_quality)
         )
         await assistant.change_stream(chat_id, stream)
 
-    async def seek_stream(self, chat_id, file_path, to_seek, duration, mode):
-        assistant = await group_assistant(self, chat_id)
-        a_q = await get_audio_bitrate(chat_id)
-        v_q = await get_video_bitrate(chat_id)
+    async def seek_stream(self, chat_id: int, file_path: str, to_seek: int, duration: int, mode: str):
+        assistant = await self._assistant_client(chat_id)
+        audio_stream_quality = await get_audio_bitrate(chat_id)
+        video_stream_quality = await get_video_bitrate(chat_id)
         stream = (
             AudioVideoPiped(
                 file_path,
-                audio_parameters=a_q,
-                video_parameters=v_q,
+                audio_parameters=audio_stream_quality,
+                video_parameters=video_stream_quality,
                 additional_ffmpeg_parameters=f"-ss {to_seek} -to {duration}",
             )
             if mode == "video"
             else AudioPiped(
                 file_path,
-                audio_parameters=a_q,
+                audio_parameters=audio_stream_quality,
                 additional_ffmpeg_parameters=f"-ss {to_seek} -to {duration}",
             )
         )
         await assistant.change_stream(chat_id, stream)
 
     async def stream_call(self, link: str):
-        """LOG_GROUP_ID üstünden linki hızlıca stream edip çıkmak için mini yardımcı."""
-        assistant = await group_assistant(self, config.LOG_GROUP_ID)
+        """
+        LOG_GROUP_ID üzerinde kısa bir join/leave testi yapar.
+        """
+        assistant = await self._assistant_client(config.LOG_GROUP_ID)
         await assistant.join_group_call(
             config.LOG_GROUP_ID,
             AudioVideoPiped(link),
@@ -184,44 +172,50 @@ class Call(PyTgCalls):
         await asyncio.sleep(0.5)
         await assistant.leave_group_call(config.LOG_GROUP_ID)
 
-    # ======== Asistanı gruba alma ========
+    # ========= Asistanı gruba sokma =========
+
     async def join_assistant(self, original_chat_id: int, chat_id: int):
         language = await get_lang(original_chat_id)
         _ = get_string(language)
 
+        # get_assistant(chat_id) çoğu şablonda asistan profili/kimliği döndürür.
+        # Biz zaten userbot1 ile çalıştığımız için onu kullanıyoruz.
         userbot = await get_assistant(chat_id)
         try:
             try:
                 get = await app.get_chat_member(chat_id, userbot.id)
             except ChatAdminRequired:
-                raise AssistantErr(_["call_1"])  # Yönetici izni yok
+                raise AssistantErr(_["call_1"])  # "Bot admin değil" vb.
 
             if get.status in (ChatMemberStatus.BANNED, ChatMemberStatus.LEFT):
                 raise AssistantErr(_["call_2"].format(userbot.username, userbot.id))
 
         except UserNotParticipant:
             chat = await app.get_chat(chat_id)
-            if chat.username:  # herkese açık grup
+            if chat.username:
                 try:
-                    await userbot.join_chat(chat.username)
+                    await self.userbot1.join_chat(chat.username)
                 except UserAlreadyParticipant:
                     pass
                 except Exception as e:
                     raise AssistantErr(_["call_3"].format(e))
-            else:  # özel/grup davet linki gerekir
+            else:
+                # Davet linki ile
                 try:
                     try:
-                        invitelink = chat.invite_link or await app.export_chat_invite_link(chat_id)
+                        invitelink = chat.invite_link
+                        if invitelink is None:
+                            invitelink = await app.export_chat_invite_link(chat_id)
                     except ChatAdminRequired:
-                        raise AssistantErr(_["call_4"])
+                        raise AssistantErr(_["call_4"])  # "Davet linki oluşturmak için admin yapın" gibi
                     except Exception as e:
                         raise AssistantErr(e)
 
                     m = await app.send_message(original_chat_id, _["call_5"])
                     if invitelink.startswith("https://t.me/+"):
                         invitelink = invitelink.replace("https://t.me/+", "https://t.me/joinchat/")
-                    await asyncio.sleep(1.5)
-                    await userbot.join_chat(invitelink)
+                    await asyncio.sleep(2)
+                    await self.userbot1.join_chat(invitelink)
                     await asyncio.sleep(2)
                     await m.edit(_["call_6"].format(userbot.name))
                 except UserAlreadyParticipant:
@@ -229,41 +223,51 @@ class Call(PyTgCalls):
                 except Exception as e:
                     raise AssistantErr(_["call_3"].format(e))
 
-    # ======== Çağrıya katıl ve akışı başlat ========
-    async def join_call(self, chat_id: int, original_chat_id: int, link: str, video: Union[bool, str] = None):
-        assistant = await group_assistant(self, chat_id)
-        a_q = await get_audio_bitrate(chat_id)
-        v_q = await get_video_bitrate(chat_id)
+    # ========= Çağrıya katılma =========
+
+    async def join_call(
+        self,
+        chat_id: int,
+        original_chat_id: int,
+        link: str,
+        video: Union[bool, str] = None,
+    ):
+        assistant = await self._assistant_client(chat_id)
+        audio_stream_quality = await get_audio_bitrate(chat_id)
+        video_stream_quality = await get_video_bitrate(chat_id)
 
         stream = (
-            AudioVideoPiped(link, audio_parameters=a_q, video_parameters=v_q)
+            AudioVideoPiped(link, audio_parameters=audio_stream_quality, video_parameters=video_stream_quality)
             if video
-            else AudioPiped(link, audio_parameters=a_q)
+            else AudioPiped(link, audio_parameters=audio_stream_quality)
         )
 
         try:
             await assistant.join_group_call(chat_id, stream, stream_type=StreamType().pulse_stream)
         except NoActiveGroupCall:
-            # Önce asistana gruba girme izni verdir
-            await self.join_assistant(original_chat_id, chat_id)
+            # Grup sesli sohbeti kapalı -> önce asistana gruba sok, sonra tekrar dene
+            try:
+                await self.join_assistant(original_chat_id, chat_id)
+            except Exception as e:
+                raise e
             try:
                 await assistant.join_group_call(chat_id, stream, stream_type=StreamType().pulse_stream)
             except Exception:
                 raise AssistantErr(
                     "**Aktif Sesli Sohbet Bulunamadı**\n\n"
-                    "Lütfen grubun sesli sohbetini açın. Açık ise kapatıp yeniden başlatın. "
-                    "Sorun sürerse /restart deneyin."
+                    "Lütfen grubun sesli sohbetini açın. Açık ise kapatıp yeniden başlatın "
+                    "ve sorun devam ederse /restart deneyin."
                 )
         except AlreadyJoinedError:
             raise AssistantErr(
-                "**Asistan Zaten Sesli Sohbette**\n\n"
-                "Genellikle iki sorgu aynı anda yürütüldüğünde olur. "
-                "Sesli sohbeti kapatıp yeniden başlatın; devam ederse /restart deneyin."
+                "**Asistan zaten sesli sohbette**\n\n"
+                "Genelde aynı anda 2 sorgu verildiğinde olur. "
+                "Asistan görünmüyorsa sesli sohbeti kapatıp açın veya /restart deneyin."
             )
         except TelegramServerError:
             raise AssistantErr(
                 "**Telegram Sunucu Hatası**\n\n"
-                "Biraz sonra tekrar deneyin. Sık olursa sesli sohbeti kapatıp yeniden başlatın."
+                "Lütfen tekrar deneyin. Sık olursa sesli sohbeti kapatıp açın."
             )
 
         await add_active_chat(chat_id)
@@ -272,14 +276,14 @@ class Call(PyTgCalls):
         if video:
             await add_active_video_chat(chat_id)
 
-        # Otomatik sonlandırma
         if await is_autoend():
             counter[chat_id] = {}
             users = len(await assistant.get_participants(chat_id))
             if users == 1:
                 autoend[chat_id] = datetime.now() + timedelta(minutes=AUTO_END_TIME)
 
-    # ======== Sıradaki parçaya geç ========
+    # ========= Kuyruk değişimi =========
+
     async def change_stream(self, client: PyTgCalls, chat_id: int):
         check = db.get(chat_id)
         popped = None
@@ -293,12 +297,18 @@ class Call(PyTgCalls):
                 await set_loop(chat_id, loop)
 
             if popped:
-                # AUTO_DOWNLOADS_CLEAR aktifse indirilen dosyayı temizleyebilirsin (opsiyonel)
-                pass
+                if config.AUTO_DOWNLOADS_CLEAR == str(True):
+                    # auto_clean fonksiyonu bazı şablonlarda var olabilir/yok olabilir
+                    try:
+                        from ArchMusic.utils.stream.autoclear import auto_clean
+                        await auto_clean(popped)
+                    except Exception:
+                        pass
 
             if not check:
                 await _clear_(chat_id)
                 return await client.leave_group_call(chat_id)
+
         except Exception:
             try:
                 await _clear_(chat_id)
@@ -306,7 +316,7 @@ class Call(PyTgCalls):
             except Exception:
                 return
 
-        # Sıradaki
+        # Yeni parçayı başlat
         queued = check[0]["file"]
         language = await get_lang(chat_id)
         _ = get_string(language)
@@ -314,28 +324,24 @@ class Call(PyTgCalls):
         user = check[0]["by"]
         original_chat_id = check[0]["chat_id"]
         streamtype = check[0]["streamtype"]
-        a_q = await get_audio_bitrate(chat_id)
-        v_q = await get_video_bitrate(chat_id)
+        audio_stream_quality = await get_audio_bitrate(chat_id)
+        video_stream_quality = await get_video_bitrate(chat_id)
         videoid = check[0]["vidid"]
         check[0]["played"] = 0
 
-        # Kaynak tipine göre akış oluştur
-        def _mk_stream(src_link, is_video: bool):
-            return (
-                AudioVideoPiped(src_link, audio_parameters=a_q, video_parameters=v_q)
-                if is_video
-                else AudioPiped(src_link, audio_parameters=a_q)
-            )
+        def mk_stream(src, as_video: bool):
+            if as_video:
+                return AudioVideoPiped(src, audio_parameters=audio_stream_quality, video_parameters=video_stream_quality)
+            return AudioPiped(src, audio_parameters=audio_stream_quality)
 
         try:
             if "live_" in queued:
                 n, link = await YouTube.video(videoid, True)
                 if n == 0:
                     return await app.send_message(original_chat_id, text=_["call_9"])
-                await client.change_stream(chat_id, _mk_stream(link, str(streamtype) == "video"))
-                # Telegram tarzı basit panel
-                button = telegram_markup(_, chat_id)
-                run = await app.send_message(
+                await client.change_stream(chat_id, mk_stream(link, str(streamtype) == "video"))
+
+                await app.send_message(
                     chat_id=original_chat_id,
                     text=_["stream_1"].format(
                         title,
@@ -343,25 +349,24 @@ class Call(PyTgCalls):
                         check[0]["dur"],
                         user,
                     ),
-                    reply_markup=None,
                 )
-                db[chat_id][0]["mystic"] = run
                 db[chat_id][0]["markup"] = "tg"
 
             elif "vid_" in queued:
-                # YouTube indirilen dosya
                 mystic = await app.send_message(original_chat_id, _["call_10"])
                 try:
                     file_path, direct = await YouTube.download(
-                        videoid, mystic, videoid=True, video=True if str(streamtype) == "video" else False
+                        videoid,
+                        mystic,
+                        videoid=True,
+                        video=True if str(streamtype) == "video" else False,
                     )
                 except Exception:
                     return await mystic.edit_text(_["call_9"], disable_web_page_preview=True)
 
-                await client.change_stream(chat_id, _mk_stream(file_path, str(streamtype) == "video"))
+                await client.change_stream(chat_id, mk_stream(file_path, str(streamtype) == "video"))
                 await mystic.delete()
-                button = stream_markup(_, videoid, chat_id)
-                run = await app.send_message(
+                await app.send_message(
                     chat_id=original_chat_id,
                     text=_["stream_1"].format(
                         title,
@@ -369,16 +374,12 @@ class Call(PyTgCalls):
                         check[0]["dur"],
                         user,
                     ),
-                    reply_markup=None,
                 )
-                db[chat_id][0]["mystic"] = run
                 db[chat_id][0]["markup"] = "stream"
 
             elif "index_" in queued:
-                # m3u8/https direkt link
-                await client.change_stream(chat_id, _mk_stream(videoid, str(streamtype) == "video"))
-                button = telegram_markup(_, chat_id)
-                run = await app.send_message(
+                await client.change_stream(chat_id, mk_stream(videoid, str(streamtype) == "video"))
+                await app.send_message(
                     chat_id=original_chat_id,
                     text=_["stream_2"].format(
                         title,
@@ -386,43 +387,50 @@ class Call(PyTgCalls):
                         check[0]["dur"],
                         user,
                     ),
-                    reply_markup=None,
                 )
-                db[chat_id][0]["mystic"] = run
                 db[chat_id][0]["markup"] = "tg"
 
             else:
-                # telegram/soundcloud/dosya yolu
-                await client.change_stream(chat_id, _mk_stream(queued, str(streamtype) == "video"))
-
+                await client.change_stream(chat_id, mk_stream(queued, str(streamtype) == "video"))
                 if videoid in ("telegram", "soundcloud"):
-                    button = telegram_markup(_, chat_id)
-                    run = await app.send_message(
+                    await app.send_message(
                         original_chat_id,
                         text=_["stream_3"].format(title, check[0]["dur"], user),
-                        reply_markup=None,
                     )
-                    db[chat_id][0]["mystic"] = run
                     db[chat_id][0]["markup"] = "tg"
                 else:
-                    # varsayılan panel
-                    button = stream_markup(_, videoid, chat_id)
-                    run = await app.send_message(
-                        original_chat_id,
+                    await app.send_message(
+                        chat_id=original_chat_id,
                         text=_["stream_1"].format(
                             title,
                             f"https://t.me/{app.username}?start=info_{videoid}",
                             check[0]["dur"],
                             user,
                         ),
-                        reply_markup=None,
                     )
-                    db[chat_id][0]["mystic"] = run
                     db[chat_id][0]["markup"] = "stream"
 
         except Exception:
             return await app.send_message(original_chat_id, text=_["call_9"])
 
+    # ========= Başlat / Durdur =========
 
-# Plugin'lerin beklediği isim: ArchMusic (instance)
+    async def start(self):
+        """
+        Pyrogram + PyTgCalls başlatma.
+        Alt sınıf kullanmadığımız için _is_running hatası olmaz.
+        """
+        await self.userbot1.start()
+        await self.one.start()
+        LOGGER.info("Assistant client ve PyTgCalls başlatıldı (STRING1).")
+
+    async def stop(self):
+        try:
+            await self.one.stop()
+        finally:
+            await self.userbot1.stop()
+        LOGGER.info("Assistant client ve PyTgCalls durduruldu.")
+
+
+# Proje genelinde kullanılan isim:
 ArchMusic = Call()
