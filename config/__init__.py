@@ -22,3 +22,7 @@ SUPPORT_GROUP = os.getenv("SUPPORT_GROUP", "https://t.me/Pars_Sohbet_TR")
 
 # Bot adı
 MUSIC_BOT_NAME = os.getenv("MUSIC_BOT_NAME", "Pars Müzik Bot")
+
+# ... önceki config değişkenlerin
+
+LOG_FILE_NAME = "pars_music_logs.txt"  # <- BUNU EKLE
