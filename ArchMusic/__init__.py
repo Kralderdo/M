@@ -1,19 +1,8 @@
 # -*- coding: utf-8 -*-
-#
-# Copyright (C) 2021-2023 by ArchBots
-# https://github.com/ArchBots/ArchMusic
-#
-# GPL-3.0 License
-#
 
 import logging
-from ArchMusic.core.bot import ArchMusic
-from ArchMusic.core.dir import dirr
-from ArchMusic.core.userbot import Userbot
-from ArchMusic.misc import dbb, heroku, sudo
-from .platforms import *
 
-# ✅ LOGGER FIX (Çökme sebebi burasıydı)
+# ✅ LOGGER FIX
 LOGGER = logging.getLogger("ParsMuzikBot")
 logging.basicConfig(
     format="%(levelname)s | %(asctime)s - %(message)s",
@@ -21,25 +10,35 @@ logging.basicConfig(
     level=logging.INFO,
 )
 
-# 📁 Gerekli klasörleri hazırla
+# ✅ Önce bu importlar gelmeli (çünkü bunlar bağımsız)
+from ArchMusic.core.dir import dirr
+from ArchMusic.misc import dbb, heroku, sudo
+
+# ✅ Sistem dosyalarını hazırla
 dirr()
-
-# 🔧 Veritabanı başlat
 dbb()
-
-# ☁️ Heroku yapılandırması
 heroku()
-
-# 👑 Sudo kullanıcıları yükle
 sudo()
 
-# 🤖 Ana bot
-app = ArchMusic()
+# ✅ Sonra botu import ediyoruz (circular import olmaması için BURADA OLMALI)
+from ArchMusic.core.bot import ArchMusic
+from ArchMusic.core.userbot import Userbot
 
-# 🤝 Asistan (UserBot)
+# ✅ Botları başlat
+app = ArchMusic()
 userbot = Userbot()
 
-# 🎵 Platform API'leri başlat
+# ✅ Platform API'leri en sona alıyoruz (çünkü botlar hazır olmalı)
+from .platforms import (
+    YouTubeAPI,
+    CarbonAPI,
+    SpotifyAPI,
+    AppleAPI,
+    RessoAPI,
+    SoundAPI,
+    TeleAPI,
+)
+
 YouTube = YouTubeAPI()
 Carbon = CarbonAPI()
 Spotify = SpotifyAPI()
