@@ -2,7 +2,7 @@
 
 import logging
 
-# ✅ LOGGER FIX
+# ✅ Logger Ayarı
 LOGGER = logging.getLogger("ParsMuzikBot")
 logging.basicConfig(
     format="%(levelname)s | %(asctime)s - %(message)s",
@@ -10,26 +10,26 @@ logging.basicConfig(
     level=logging.INFO,
 )
 
-# ✅ Önce bu importlar gelmeli (çünkü bunlar bağımsız)
+# ✅ ÖNCE temel bağımlılıkları yükle (çünkü döngüsel import olmaması gerekiyor)
 from ArchMusic.core.dir import dirr
 from ArchMusic.misc import dbb, heroku, sudo
 
-# ✅ Sistem dosyalarını hazırla
-dirr()
-dbb()
-heroku()
-sudo()
+# ✅ Sistem Hazırlığı
+dirr()         # klasör kontrol
+dbb()          # db oluştur
+heroku()       # heroku config
+sudo()         # sudo kullanıcıları yükle
 
-# ✅ Sonra botu import ediyoruz (circular import olmaması için BURADA OLMALI)
+# ✅ Botları import ediyoruz (circular import engellemek için BURADA)
 from ArchMusic.core.bot import ArchMusic
 from ArchMusic.core.userbot import Userbot
 
-# ✅ Botları başlat
+# ✅ Bot Client örnekleri
 app = ArchMusic()
 userbot = Userbot()
 
-# ✅ Platform API'leri en sona alıyoruz (çünkü botlar hazır olmalı)
-from .platforms import (
+# ✅ Platform API'leri (En son yüklenecek)
+from ArchMusic.platforms import (
     YouTubeAPI,
     CarbonAPI,
     SpotifyAPI,
@@ -39,6 +39,7 @@ from .platforms import (
     TeleAPI,
 )
 
+# ✅ Kullanım için hazır API objeleri
 YouTube = YouTubeAPI()
 Carbon = CarbonAPI()
 Spotify = SpotifyAPI()
