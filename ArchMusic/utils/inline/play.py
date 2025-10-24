@@ -277,3 +277,22 @@ def panel_markup_3(_, videoid: str, chat_id: int):
     br = _brand_row()
     if br: rows.insert(0, br)
     return rows
+
+# =========================================================
+# Basit Stream Timer Markup (Hata FIX)
+# =========================================================
+def stream_markup_timer(_, chat_id: int, played, duration):
+    return [
+        [
+            InlineKeyboardButton(
+                text=f"⏳ {played} / {duration}",
+                callback_data="timer"
+            )
+        ],
+        [
+            InlineKeyboardButton(
+                text=_["CLOSEMENU_BUTTON"],
+                callback_data="close"
+            )
+        ],
+    ]
