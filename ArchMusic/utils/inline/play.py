@@ -1,27 +1,35 @@
 # -*- coding: utf-8 -*-
 #
 # Inline Keyboards for Play / Stream
-# Uyumlu: play.py ve playcallback.py
+# Uyumlu: core/call.py, plugins/admins/callback.py, plugins/play/*
 # Not: strings çeviri sözlüğünden (_["..."]) gelen anahtarları kullanır.
 
+from typing import List, Optional
 from pyrogram.types import InlineKeyboardButton
-from typing import List
-
 
 # ---------------------------------------------------------
-# Yardımcı: Tek satır buton dizisi oluşturucu
+# Ayar: marka satırı (kaldırmak istersen "" yap)
+BRANDING_TEXT: Optional[str] = "⚙️ Powered by Pars Müzik"
+
+# ---------------------------------------------------------
+# Yardımcı: Tek satır buton dizisi
 def _row(*buttons: InlineKeyboardButton) -> List[InlineKeyboardButton]:
     return [*buttons]
 
+# Yardımcı: Marka satırı (isteğe bağlı)
+def _brand_row() -> List[InlineKeyboardButton]:
+    if not BRANDING_TEXT:
+        return []
+    return _row(InlineKeyboardButton(text=BRANDING_TEXT, callback_data="nonclickable"))
 
 # =========================================================
-# Arama sonucu: Tek parça için seçim (Ses / Video)
+# Arama sonucu: Tek parça seçim (Ses / Video)
 # play.py -> track_markup(...)
 # =========================================================
 def track_markup(_, videoid: str, user_id: int, channel: str, fplay: str):
     # channel: "g" (group) / "c" (channel)
     # fplay: "d" (queue sonu) / "f" (forceplay)
-    return [
+    rows = [
         _row(
             InlineKeyboardButton(
                 text=_["P_B_1"],  # ▶️ Müzik Oynat
@@ -39,7 +47,9 @@ def track_markup(_, videoid: str, user_id: int, channel: str, fplay: str):
             )
         ),
     ]
-
+    br = _brand_row()
+    if br: rows.insert(0, br)
+    return rows
 
 # =========================================================
 # Playlist için seçim (YouTube / Spotify / Apple)
@@ -47,7 +57,7 @@ def track_markup(_, videoid: str, user_id: int, channel: str, fplay: str):
 # ptype: "yt" | "spplay" | "spalbum" | "spartist" | "apple"
 # =========================================================
 def playlist_markup(_, videoid: str, user_id: int, ptype: str, channel: str, fplay: str):
-    return [
+    rows = [
         _row(
             InlineKeyboardButton(
                 text=_["P_B_1"],
@@ -65,15 +75,17 @@ def playlist_markup(_, videoid: str, user_id: int, ptype: str, channel: str, fpl
             )
         ),
     ]
-
+    br = _brand_row()
+    if br: rows.insert(0, br)
+    return rows
 
 # =========================================================
-# Canlı yayın (m3u8 / live) için
+# Canlı yayın (m3u8 / live)
 # play.py -> livestream_markup(...)
 # mode: "a" (ses) | "v" (video)
 # =========================================================
 def livestream_markup(_, videoid: str, user_id: int, mode: str, channel: str, fplay: str):
-    return [
+    rows = [
         _row(
             InlineKeyboardButton(
                 text=_["P_B_3"],  # 🔴 Canlı Oynat
@@ -85,16 +97,18 @@ def livestream_markup(_, videoid: str, user_id: int, mode: str, channel: str, fp
             ),
         )
     ]
-
+    br = _brand_row()
+    if br: rows.insert(0, br)
+    return rows
 
 # =========================================================
-# Slider (sonraki/önceki arama sonucu)
+# Slider (önceki/sonraki arama sonucu)
 # play.py -> slider_markup(...)
-# query_type: 0 / 1 (iç mantıkta sayfa yönü)
+# query_type: int (iç sayfalama bilgisi)
 # =========================================================
 def slider_markup(_, videoid: str, user_id: int, query: str, query_type: int, channel: str, fplay: str):
-    query = f"{query[:20]}" if query else ""
-    return [
+    query = f"{(query or '')[:20]}"
+    rows = [
         _row(
             InlineKeyboardButton(
                 text=_["P_B_1"],
@@ -120,14 +134,16 @@ def slider_markup(_, videoid: str, user_id: int, query: str, query_type: int, ch
             ),
         ),
     ]
-
+    br = _brand_row()
+    if br: rows.insert(0, br)
+    return rows
 
 # =========================================================
-# Akış sırasında kontrol paneli (genel)
-# Bazı modüller stream_markup(...) kullanıyor
+# Genel akış kontrol paneli
+# core/call.py ve bazı modüller stream_markup ister
 # =========================================================
 def stream_markup(_, videoid: str, chat_id: int):
-    return [
+    rows = [
         _row(
             InlineKeyboardButton(text="⏮ 10", callback_data=f"ADMIN 1|{chat_id}"),
             InlineKeyboardButton(text="⏭ 10", callback_data=f"ADMIN 2|{chat_id}"),
@@ -140,17 +156,36 @@ def stream_markup(_, videoid: str, chat_id: int):
             InlineKeyboardButton(text="‣‣I", callback_data=f"ADMIN Skip|{chat_id}"),
             InlineKeyboardButton(text="▢", callback_data=f"ADMIN Stop|{chat_id}"),
         ),
-        _row(
-            InlineKeyboardButton(text=_["CLOSEMENU_BUTTON"], callback_data="close"),
-        ),
+        _row(InlineKeyboardButton(text=_["CLOSEMENU_BUTTON"], callback_data="close")),
     ]
-
+    br = _brand_row()
+    if br: rows.insert(0, br)
+    return rows
 
 # =========================================================
-# Ses odaklı kontrol paneli (playcallback.py import eder)
+# Telegram odaklı minimal panel (bazı sürümler çağırıyor)
+# core/call.py -> telegram_markup import eder
+# =========================================================
+def telegram_markup(_, chat_id: int):
+    rows = [
+        _row(
+            InlineKeyboardButton(text="▷", callback_data=f"ADMIN Resume|{chat_id}"),
+            InlineKeyboardButton(text="II", callback_data=f"ADMIN Pause|{chat_id}"),
+            InlineKeyboardButton(text="‣‣I", callback_data=f"ADMIN Skip|{chat_id}"),
+            InlineKeyboardButton(text="▢", callback_data=f"ADMIN Stop|{chat_id}"),
+        ),
+        _row(InlineKeyboardButton(text=_["CLOSEMENU_BUTTON"], callback_data="close")),
+    ]
+    br = _brand_row()
+    if br: rows.insert(0, br)
+    return rows
+
+# =========================================================
+# Ses odaklı kontrol paneli
+# plugins/play/playcallback.py -> audio_markup import eder
 # =========================================================
 def audio_markup(_, chat_id: int):
-    return [
+    rows = [
         _row(
             InlineKeyboardButton(text="▷", callback_data=f"ADMIN Resume|{chat_id}"),
             InlineKeyboardButton(text="II", callback_data=f"ADMIN Pause|{chat_id}"),
@@ -163,17 +198,18 @@ def audio_markup(_, chat_id: int):
             InlineKeyboardButton(text="🔁 Loop", callback_data=f"ADMIN Loop|{chat_id}"),
             InlineKeyboardButton(text="🔀 Shuffle", callback_data=f"ADMIN Shuffle|{chat_id}"),
         ),
-        _row(
-            InlineKeyboardButton(text=_["CLOSEMENU_BUTTON"], callback_data="close"),
-        ),
+        _row(InlineKeyboardButton(text=_["CLOSEMENU_BUTTON"], callback_data="close")),
     ]
-
+    br = _brand_row()
+    if br: rows.insert(0, br)
+    return rows
 
 # =========================================================
-# Video odaklı kontrol paneli (playcallback.py import eder)
+# Video odaklı kontrol paneli
+# plugins/play/playcallback.py -> video_markup import eder
 # =========================================================
 def video_markup(_, chat_id: int):
-    return [
+    rows = [
         _row(
             InlineKeyboardButton(text="▷", callback_data=f"ADMIN Resume|{chat_id}"),
             InlineKeyboardButton(text="II", callback_data=f"ADMIN Pause|{chat_id}"),
@@ -186,28 +222,58 @@ def video_markup(_, chat_id: int):
             InlineKeyboardButton(text="⏮ 30", callback_data=f"ADMIN 3|{chat_id}"),
             InlineKeyboardButton(text="⏭ 30", callback_data=f"ADMIN 4|{chat_id}"),
         ),
-        _row(
-            InlineKeyboardButton(text=_["CLOSEMENU_BUTTON"], callback_data="close"),
-        ),
+        _row(InlineKeyboardButton(text=_["CLOSEMENU_BUTTON"], callback_data="close")),
     ]
+    br = _brand_row()
+    if br: rows.insert(0, br)
+    return rows
+
 # =========================================================
-# Telegram Ses/Video Basit Panel (Zorunlu FIX)
-# ArchMusic/core/call.py tarafından import edilir
+# Panel sayfalama (bazı sürümler import ediyor)
+# plugins/admins/callback.py -> panel_markup_1/2/3 import eder
 # =========================================================
-def telegram_markup(_, chat_id: int):
-    return [
-        [
-            InlineKeyboardButton(text="▷", callback_data=f"ADMIN Resume|{chat_id}"),
-            InlineKeyboardButton(text="II", callback_data=f"ADMIN Pause|{chat_id}"),
-            InlineKeyboardButton(text="‣‣I", callback_data=f"ADMIN Skip|{chat_id}"),
-            InlineKeyboardButton(text="▢", callback_data=f"ADMIN Stop|{chat_id}"),
-        ],
-        [
-            InlineKeyboardButton(text="🔁 Loop", callback_data=f"ADMIN Loop|{chat_id}"),
+def panel_markup_1(_, videoid: str, chat_id: int):
+    rows = [
+        _row(
+            InlineKeyboardButton(text="⏸ Pause", callback_data=f"ADMIN Pause|{chat_id}"),
+            InlineKeyboardButton(text="▶️ Resume", callback_data=f"ADMIN Resume|{chat_id}"),
+        ),
+        _row(
+            InlineKeyboardButton(text="⏯ Skip", callback_data=f"ADMIN Skip|{chat_id}"),
+            InlineKeyboardButton(text="⏹ Stop", callback_data=f"ADMIN Stop|{chat_id}"),
+        ),
+        _row(InlineKeyboardButton(text="🔁 Replay", callback_data=f"ADMIN Replay|{chat_id}")),
+    ]
+    br = _brand_row()
+    if br: rows.insert(0, br)
+    return rows
+
+def panel_markup_2(_, videoid: str, chat_id: int):
+    rows = [
+        _row(
             InlineKeyboardButton(text="🔇 Mute", callback_data=f"ADMIN Mute|{chat_id}"),
             InlineKeyboardButton(text="🔊 Unmute", callback_data=f"ADMIN Unmute|{chat_id}"),
-        ],
-        [
-            InlineKeyboardButton(text=_["CLOSEMENU_BUTTON"], callback_data="close"),
-        ]
+        ),
+        _row(
+            InlineKeyboardButton(text="🔀 Shuffle", callback_data=f"ADMIN Shuffle|{chat_id}"),
+            InlineKeyboardButton(text="🔁 Loop", callback_data=f"ADMIN Loop|{chat_id}"),
+        ),
     ]
+    br = _brand_row()
+    if br: rows.insert(0, br)
+    return rows
+
+def panel_markup_3(_, videoid: str, chat_id: int):
+    rows = [
+        _row(
+            InlineKeyboardButton(text="⏮ 10", callback_data=f"ADMIN 1|{chat_id}"),
+            InlineKeyboardButton(text="⏭ 10", callback_data=f"ADMIN 2|{chat_id}"),
+        ),
+        _row(
+            InlineKeyboardButton(text="⏮ 30", callback_data=f"ADMIN 3|{chat_id}"),
+            InlineKeyboardButton(text="⏭ 30", callback_data=f"ADMIN 4|{chat_id}"),
+        ),
+    ]
+    br = _brand_row()
+    if br: rows.insert(0, br)
+    return rows
