@@ -190,3 +190,24 @@ def video_markup(_, chat_id: int):
             InlineKeyboardButton(text=_["CLOSEMENU_BUTTON"], callback_data="close"),
         ),
     ]
+# =========================================================
+# Telegram Ses/Video Basit Panel (Zorunlu FIX)
+# ArchMusic/core/call.py tarafından import edilir
+# =========================================================
+def telegram_markup(_, chat_id: int):
+    return [
+        [
+            InlineKeyboardButton(text="▷", callback_data=f"ADMIN Resume|{chat_id}"),
+            InlineKeyboardButton(text="II", callback_data=f"ADMIN Pause|{chat_id}"),
+            InlineKeyboardButton(text="‣‣I", callback_data=f"ADMIN Skip|{chat_id}"),
+            InlineKeyboardButton(text="▢", callback_data=f"ADMIN Stop|{chat_id}"),
+        ],
+        [
+            InlineKeyboardButton(text="🔁 Loop", callback_data=f"ADMIN Loop|{chat_id}"),
+            InlineKeyboardButton(text="🔇 Mute", callback_data=f"ADMIN Mute|{chat_id}"),
+            InlineKeyboardButton(text="🔊 Unmute", callback_data=f"ADMIN Unmute|{chat_id}"),
+        ],
+        [
+            InlineKeyboardButton(text=_["CLOSEMENU_BUTTON"], callback_data="close"),
+        ]
+    ]
