@@ -1,44 +1,45 @@
+# -*- coding: utf-8 -*-
 #
-# Copyright (C) 2021-2023 by ArchBots@Github, < https://github.com/ArchBots >.
+# Copyright (C) 2021-2023 by ArchBots
+# https://github.com/ArchBots/ArchMusic
 #
-# This file is part of < https://github.com/ArchBots/ArchMusic > project,
-# and is released under the "GNU v3.0 License Agreement".
-# Please see < https://github.com/ArchBots/ArchMusic/blob/master/LICENSE >
-#
-# All rights reserved.
+# GPL-3.0 License
 #
 
+import logging
 from ArchMusic.core.bot import ArchMusic
 from ArchMusic.core.dir import dirr
-# from ArchMusic.core.git import git  # 🔒 Heroku için devre dışı bırakıldı
 from ArchMusic.core.userbot import Userbot
 from ArchMusic.misc import dbb, heroku, sudo
-
-from .logging import LOGGER
-
-# Directories
-dirr()
-
-# Check Git Updates (devre dışı)
-# git()
-
-# Initialize Memory DB
-dbb()
-
-# Heroku APP
-heroku()
-
-# Load Sudo Users from DB
-sudo()
-
-# Bot Client
-app = ArchMusic()
-
-# Assistant Client
-userbot = Userbot()
-
 from .platforms import *
 
+# ✅ LOGGER FIX (Çökme sebebi burasıydı)
+LOGGER = logging.getLogger("ParsMuzikBot")
+logging.basicConfig(
+    format="%(levelname)s | %(asctime)s - %(message)s",
+    datefmt="%d-%b-%y %H:%M:%S",
+    level=logging.INFO,
+)
+
+# 📁 Gerekli klasörleri hazırla
+dirr()
+
+# 🔧 Veritabanı başlat
+dbb()
+
+# ☁️ Heroku yapılandırması
+heroku()
+
+# 👑 Sudo kullanıcıları yükle
+sudo()
+
+# 🤖 Ana bot
+app = ArchMusic()
+
+# 🤝 Asistan (UserBot)
+userbot = Userbot()
+
+# 🎵 Platform API'leri başlat
 YouTube = YouTubeAPI()
 Carbon = CarbonAPI()
 Spotify = SpotifyAPI()
