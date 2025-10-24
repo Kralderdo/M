@@ -103,7 +103,9 @@ async def init():
     except:
         pass
 
-    await ArchMusic.decorators()
+    # ✅ Hatalı satır kaldırıldı
+    # await ArchMusic.decorators()
+
     LOGGER.info("✅ ParsMüzikBot başarıyla başlatıldı!")
 
     settings = await get_restart_settings()
